@@ -1,0 +1,11 @@
+export ACLI_CONFIG=~/ACLI/acli.properties
+export PATH="$PATH:~/ACLI"
+
+alias ji="jira i" #jira-cl
+alias jcd="acli -a updateIssue --comment Done --issue"
+alias jdo="acli -a transitionIssue --transition Done --issue"
+alias jre="acli -a transitionIssue --transition Resolved --issue"
+alias jpr="acli -a transitionIssue --transition 'In Progress' --issue"
+alias jas="acli -a assignIssue --userId 60c871fb624d700069e13f08 --issue"
+alias jun="acli -a assignIssue --userId '' --issue"
+alias jge="acli -a getIssue --issue"

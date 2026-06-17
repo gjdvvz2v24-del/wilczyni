@@ -1,0 +1,13 @@
+faktura() {
+    FAKTURA_DIR="~/Library/Containers/com.k7team.Faktura"
+    ICLOUD_DIR="~/Library/Mobile\ Documents/com~apple~CloudDocs/com.k7team.Faktura"
+
+    eval echo "${ICLOUD_DIR}"
+    if [ "$1" == "out" ] ; then
+        eval rsync -avz "${FAKTURA_DIR}/Data" "${ICLOUD_DIR}/"
+    fi
+
+    if [ "$1" == "in" ] ; then
+        eval rsync -avz "${ICLOUD_DIR}/Data" "${FAKTURA_DIR}/"
+    fi
+}

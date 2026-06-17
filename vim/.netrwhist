@@ -1,0 +1,5 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhistcnt =3
+let g:netrw_dirhist_3='/private/tmp/x.sh'
+let g:netrw_dirhist_2='/Users/lf-grpi/Vagrant/wa/wa-infrastructure/scalefactory.com/modules/sf_logstash/manifests'
+let g:netrw_dirhist_1='/Users/lf-grpi/Vagrant/wa/wa-infrastructure/vendor/modules/mongodb/manifests'

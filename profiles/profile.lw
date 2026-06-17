@@ -1,0 +1,30 @@
+ssm () {
+    if [[ $# -ne 2 ]] ; then
+        echo "env instanceid"
+    else
+        aws-vault exec $1  -- aws ssm start-session  --region eu-west-1 --target $2
+    fi
+}
+
+ec2-list () {
+    if [[ $# -ne 1 ]] ; then
+        echo "env"
+    else
+        aws-vault exec $1 -- aws ec2 describe-instances --query "Reservations[*].Instances[*].{Name:KeyName,Instance:InstanceId,IP_private:PrivateIpAddress,IP_public:PublicIp,Name:Tags[?Key=='Name']|[0].Value}" | cat
+    fi
+}
+
+ldappw () {
+    echo $(getpw ldap)$(oathtool -b --totp $(getpw ldap_mfa)) | yank
+}
+
+awsmfa () {
+    oathtool -b --totp $(getpw aws_mfa) | yank
+}
+
+alias lw-envs="cat ~/Repo/lw-platform/platform/iam/locals.tf"
+alias docker_login="aws-vault exec wa-mgmt  -- aws ecr get-login  --no-include-email --registry-id 259231678319 | bash"
+alias lw-change-pass="ssh ec2-user@10.254.4.5 -i ~/.ssh/mgmt.pem -- sudo lw-change-pass"
+alias ldap-login="ssh ec2-user@10.254.4.5 -i ~/.ssh/mgmt.pem"
+alias prod-gate-login="aws-vault exec wa-live  -- aws ssm start-session  --region eu-west-1 --target i-0b63629ffe8570067"
+alias rbci="cd /Users/lf-grpi/Work/rbci/data/"

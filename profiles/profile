@@ -1,0 +1,247 @@
+export PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:~/homebrew/opt/node@${NODE_VERSION}/bin:~/Library/Python/${PYTHON_VERSION}/bin:/opt/homebrew/bin/:/usr/local/bin:${PATH}
+
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export COLUMNS="120"
+
+export BASH_SILENCE_DEPRECATION_WARNING=1
+export GIT_EDITOR=vim
+export PYTHONSTARTUP=~/.pythonrc
+export REGION=eu-north-1
+export TFENV_ARCH=arm64
+
+unset HISTFILE
+
+export PROFILE_DIR=~/.profiles
+export PROFILE_VAULT_DIR=/Volumes/Vault/.profiles
+
+setpw () {
+    if [[ $# -ne 1 ]] ; then
+        echo "setpw string"    
+    else
+        read -s passwd
+        security delete-generic-password -a $(whoami) -s $1
+        security add-generic-password -a $(whoami) -s $1 -w ${passwd}
+    fi
+}
+
+getpw () {
+    if [[ $# -ne 1 ]] ; then
+        echo "gettpw string"
+    else
+        security find-generic-password -a $(whoami) -s $1 -w
+    fi
+}
+
+dlink() {
+    SRC=$(readlink $1)
+    unlink $1
+    cp ${SRC} $1
+}
+
+
+profile() {
+    FILE=${PROFILE_DIR}/profile
+    if [[ ${#} -gt 1  &&  "$1" != "-e" ]] ; then
+        FILE=${PROFILE_DIR}/profile.$1
+        vim $FILE
+    fi
+
+    if [[ "$#" -gt "0" ]] ; then
+        if [[ "$1" == "-e" ]] ; then
+            vim ${FILE}
+        fi
+    fi
+
+    source ${FILE}
+}
+
+profile-v() {
+    if [[  "$#" -ge "1" && "$1" != "-e" ]] ; then
+        FILE=${PROFILE_VAULT_DIR}/profile.$1 
+    else
+        FILE=${PROFILE_VAULT_DIR}/profile.$2
+    fi
+    if [[ "$#" -gt "0" ]] ; then
+        if [[ "$1" == "-e" ]] ; then
+            vim ${FILE}
+        fi
+    else
+        ls -1 ${PROFILE_VAULT_DIR}/* | awk '-F.' '{print $NF}'
+    fi
+
+    [[ -n ${FILE} ]] && source ${FILE}
+}
+
+n() {
+    if [[ "$#" == 0 ]] ; then
+        ls -1 ~/.notes* | gsed -ne 's/.*.notes_\(.*\)/\1/p' | yank -l
+    else
+        POSTFIX=$1
+        shift
+        if [[ "$1" == "-e" ]] ; then
+            vim ~/.notes_${POSTFIX}
+        elif [[ "$1" == "-l" ]] ; then
+            cat ~/.notes_${POSTFIX} | yank -l
+        elif [[ "$1" == "-lr" ]] ; then
+            while true; do
+              cat ~/.notes_${POSTFIX} | yank -l
+              pbpaste | bash
+            done
+        elif [[ "$1" == "-r" ]] ; then
+            source ~/.notes_${POSTFIX}
+        else
+            cat ~/.notes_${POSTFIX}
+        fi
+   fi
+}
+
+fnd() {
+    if [[ $# -eq 2 ]] ; then
+        find . -iname "*\.$2" -exec grep -iH --color "$1" {} \;
+    else
+        grep --color -i "$1" * -r --exclude=\*.{svg,py,pyc,plan,backup,tfstate,swp,js,json,html,htm,map,bk,tar,gz,deb,tgz,tf-} --exclude-dir '\.terraform' 2>/dev/null
+    fi
+}
+
+kms_encrypt() {
+    aws kms encrypt --key-id $1 --plaintext $2 --query CiphertextBlob --output text
+}
+
+kms_decrypt() {
+    aws kms decrypt --ciphertext-blob fileb://<( echo $1 | base64 -D ) --output text --query Plaintext | base64 -D
+}
+
+
+re_tag () {
+    if [[ $# == 1 ]] ;then
+        echo 'tag message'
+        read m
+        git tag -d "$1"
+        git push --delete origin "$1"
+        git tag -a "$1" -m "$m"
+        git push --tags
+    fi
+}
+
+re_branch () {
+    BRANCH=$(git branch --show-current)
+    git checkout master
+    git pull
+    git branch -D ${BRANCH}
+    git checkout -b ${BRANCH}
+}
+
+tfmask() {
+    for i in $@ ; do
+        mv "$i" "_$i-"
+    done
+}
+
+tfunmask() {
+    for i in $@ ; do
+        mv  -- "$i" "$(echo $i|sed -e 's/^_//g' -e 's/-$//g')"
+    done
+}
+
+git-url() {
+    REPO=`git rev-parse --show-toplevel`
+
+    if [[ $? -ne 0 ]]
+    then
+        echo "Not in git repo"
+        exit 1
+    fi
+
+    git_branch=`git rev-parse --abbrev-ref HEAD 2>/dev/null`
+    relative_path=`git rev-parse --show-prefix|gsed "s/\/$//"`
+    GIT_REMOTE_URL_UNFINISHED=`git config --get remote.origin.url|gsed -s "s/^ssh/http/; s/git@//; s/.git$//; s/:/\//g"`
+    GIT_REMOTE_URL="$(dirname $GIT_REMOTE_URL_UNFINISHED)/$(basename $GIT_REMOTE_URL_UNFINISHED)/tree/$relative_path"
+    git_branch_in_url=`echo $git_branch| gsed 's/\//%2F/g'`
+    GIT_REMOTE_URL="$(dirname $GIT_REMOTE_URL_UNFINISHED)/$(basename $GIT_REMOTE_URL_UNFINISHED)/tree/$git_branch_in_url/$relative_path"
+    echo $GIT_REMOTE_URL
+}
+
+slack-active () {
+    while true; do
+        if [ -f /tmp/auto.lock ] ; then
+            exit
+        fi
+        osascript -e 'tell script "Slack"
+#                      focus main window
+                      send message "test" in channel "@Grzegorz Piliszczuk"
+                      end tell'
+        sleep 1500
+    done
+}
+
+aws-login () {
+    if [ $# -gt 1 ]; then
+        x=-s
+    fi
+    aws-vault login $1 -t $(oathtool -b --totp $(getpw aws_mfa)) $x
+}
+
+vv () {
+    profile=$1
+    shift 1
+    aws-vault exec $profile -t $(oathtool -b --totp $(getpw aws_mfa)) -- $@
+}
+
+cdd () { 
+    cd $(dirname $1)
+}
+
+pv () {
+    for i in /Volumes/Vault/.profile.* ; do source $i; done 2>/dev/null
+}
+alias ll="ls --color -lG"
+alias l="ls --color -lG"
+alias tree="tree -C"
+alias t="tree"
+alias tf="tree -f"
+alias grep="grep --color"
+alias vi="vim"
+alias cat="ccat -G String="lightgray" -G Keyword="yellow" -G Plaintext=darkteal -G 'Comment=fuchsia' -G 'Tag=fuchsia'"
+alias repo="cd ~/Repo/"
+alias work="cd ~/Work/"
+alias tools="cd ~/Tools/"
+alias c='$(fc -ln -1) 2>&1 | tail -1 | pbcopy'
+alias @@='$($(fc -ln -1) 2>&1 | tail -2)'
+alias ..="pwd | pbcopy"
+alias ...='cd $(pbpaste)'
+
+alias lw-envs="cat ~/Repo/lw-platform/platform/iam/locals.tf"
+alias tfinit="terraform init"
+alias tfplan="terraform plan -out tf.plan"
+alias tfdestroy="terraform destroy"
+alias tfapply="terraform apply tf.plan"
+
+alias aws-config="cat ~/.aws/config"
+# alias v="aws-vault exec -t $(oathtool -b --totp $(getpw aws_mfa))"
+alias aws-config="vim ~/.aws/config"
+alias tfs="vim ~/.vim/bundle/vim-snippets-terraform/terraform.snippets"
+alias x86="arch -x86_64 $SHELL"
+alias venv-ansible=". ~/Work/venv/ansible/bin/activate"
+
+alias t="tmux"
+alias t0="tmux attach  -t 0"
+
+alias sts="aws sts get-caller-identity"
+
+if [[ $(uname) == Darwin ]] ; then 
+    alias sed='gsed'
+fi
+
+alias docker-x86="export DOCKER_DEFAULT_PLATFORM=linux/amd64"
+
+alias socks_on="networksetup -setsocksfirewallproxystate wi-fi on"
+alias socks_off="networksetup -setsocksfirewallproxystate wi-fi off"
+
+#complete -C aws_completer aws
+#. ~/.git-completion
+
+#powerline-daemon -q
+#POWERLINE_BASH_CONTINUATION=1
+#POWERLINE_BASH_SELECT=1
+#. ~/Library/Python/${PYTHON_VERSION}/lib/python/site-packages/powerline/bindings/bash/powerline.sh
